@@ -3,14 +3,16 @@
 import { useForm } from "react-hook-form";
 import { LoginFormData, loginSchema } from "@/app/(auth)/_components/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, useTransition } from "react";
+import { use, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { handleLoginUser } from "@/lib/actions/auth-action";
+import { useAuth } from "@/lib/contexts/AuthContext";
+
 export default function LoginForm() {
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState('');
     const router = useRouter();
-
+    const { checkAuth } = useAuth();
     const {
         register,
         handleSubmit,
@@ -28,6 +30,7 @@ export default function LoginForm() {
                 try {
                     const result = await handleLoginUser(data);
                     if (result.success) {
+                        await checkAuth();
                         router.push("/dashboard");
                     }else{
                         setError(result.message || 'Login failed');
