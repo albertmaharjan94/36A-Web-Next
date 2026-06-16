@@ -23,3 +23,14 @@ export const login = async (data: any) => {
             || 'Login failed');
     }
 }
+
+export const whoami = async () => {
+    try {
+        const response =
+            await axiosInstance.get(API.AUTH.WHOAMI); // path, data
+        return response.data; // reponse ko body
+    } catch (error: Error | any) {
+        throw new Error(error?.response?.data?.message
+            || 'Fetch user data failed');
+    }
+}

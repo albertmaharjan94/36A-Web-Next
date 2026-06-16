@@ -1,5 +1,5 @@
 "use server"; // server side api call
-import { register, login } from "@/lib/api/auth";
+import { register, login, whoami } from "@/lib/api/auth";
 import { LoginFormData, RegisterFormData } from "@/app/(auth)/_components/schema";
 import { setTokenCookie, storeUserData } from "@/lib/cookies";
 
@@ -33,5 +33,18 @@ export const handleLoginUser = async (data: LoginFormData) => {
         }
     }catch (error: Error | any){
         return { success: false, message: error?.message || 'Login failed' };    
+    }
+}
+
+export const handleWhoami = async () => {  
+    try{
+        const result = await whoami();
+        if(result.success){
+            return { success: true, message: result.message, data: result.data }; 
+        }else{
+            return { success: false, message: result.message || 'Fetch user data failed' };    
+        }
+    }catch (error: Error | any){
+        return { success: false, message: error?.message || 'Fetch user data failed' };
     }
 }
