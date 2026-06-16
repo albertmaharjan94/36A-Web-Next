@@ -1,5 +1,7 @@
+// "use client";
 import { handleWhoami } from "@/lib/actions/auth-action";
 import { notFound } from "next/navigation";
+import UpdateForm from "./_components/UpdateForm";
 
 export default async function Page() {
     const user = await handleWhoami(); // loading
@@ -9,11 +11,10 @@ export default async function Page() {
     if(!user.data){
         notFound(); // triggers not-found.tsx
     }
-    
+
     return (
         <div>
-            User Details:
-            {user.data.email}
+            <UpdateForm user={user.data} />
         </div>
     );
 }
