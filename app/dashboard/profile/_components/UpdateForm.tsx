@@ -1,78 +1,209 @@
 "use client";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { Controller, useForm } from "react-hook-form";
+import {  useState, useRef } from "react";
+import Image from "next/image";
+import { toast } from "react-toastify";
+import { handleUpdateUser } from "@/lib/actions/auth-action";
+
 import { z } from "zod";
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
-const updateSchema = z.object({
-    firstName: z.string().min(1, { message: "First name is required" }),
-    lastName: z.string().min(1, { message: "Last name is required" }),
+export const updateUserSchema = z.object({
+    firstName: z.string().min(2, { message: "Minimum 2 characters" }),
+    lastName: z.string().min(2, { message: "Minimum 2 characters" }),
+    email: z.string(),
+    username: z.string().min(3, { message: "Minimum 3 characters" }),
+    image: z
+        .instanceof(File)
+        .optional()
+        .refine((file) => !file || file.size <= MAX_FILE_SIZE, {
+            message: "Max file size is 5MB",
+        })
+        .refine((file) => !file || ACCEPTED_IMAGE_TYPES.includes(file.type), {
+            message: "Only .jpg, .jpeg, .png and .webp formats are supported",
+        }),
 })
-type UpdateFormData = z.infer<typeof updateSchema>;
+export type UpdateUserData = z.infer<typeof updateUserSchema>;
 
-export default function UpdateForm(
-    { user }: { user: any }
-) {
-    const [isPending, startTransition] = useTransition();
-    const [error, setError] = useState('');
-
-    const {
-        register,
-        handleSubmit,
-        formState: { errors, isSubmitting }
-    } = useForm<UpdateFormData>({
-        resolver: zodResolver(updateSchema),
-        defaultValues:{
-            firstName: user.firstName || '',
-            lastName: user.lastName || '',
-        }
-    });
-
-    const onSubmit = (data: UpdateFormData) => {
-        // isPending is true during the transition, 
-        // and false after it finishes
-        setError('');
-        startTransition(
-            async () => {
-                try {
-                    
-                } catch (error: any) {
-                    setError(error?.message || 'Update failed');
-                }
+export default function UpdateUserForm({
+    user
+}: { user: any }) {
+    const { register, handleSubmit, control, formState: { errors, isSubmitting } } =
+        useForm<UpdateUserData>({
+            resolver: zodResolver(updateUserSchema),
+            values: {
+                firstName: user?.firstName || '',
+                lastName: user?.lastName || '',
+                email: user?.email || '',
+                username: user?.username || ''
             }
-        );
-    }
+        });
+
+    const [error, setError] = useState<string | null>(null);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleImageChange = (file: File | undefined, onChange: (file: File | undefined) => void) => {
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewImage(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        } else {
+            setPreviewImage(null);
+        }
+        onChange(file);
+    };
+
+    const handleDismissImage = (onChange?: (file: File | undefined) => void) => {
+        setPreviewImage(null);
+        onChange?.(undefined);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const onSubmit = async (data: UpdateUserData) => {
+        setError(null);
+        try {
+            const formData = new FormData();
+            formData.append('firstName', data.firstName);
+            formData.append('lastName', data.lastName);
+            formData.append('email', data.email);
+            formData.append('username', data.username);
+            if (data.image) {
+                formData.append('profileImage', data.image);
+            }
+            const response = await handleUpdateUser(formData);
+            if (!response.success) {
+                throw new Error(response.message || 'Update profile failed');
+            }
+
+            handleDismissImage();
+            toast.success('Profile updated successfully');
+        } catch (error: Error | any) {
+            toast.error(error.message || 'Profile update failed');
+            setError(error.message || 'Profile update failed');
+        }
+    };
+
     return (
-        <div className="max-w-md mx-auto p-4">
-            <form onSubmit={handleSubmit(onSubmit)}>
-                {error && <div className="mb-4 text-red-500 border border-red-500 p-2 rounded">{error}</div>}
-                
+        <div>
+            <h1 className="text-2xl font-bold mb-4">Profile Page</h1>
+            <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+                {error && (
+                    <p className="text-sm text-red-600">{error}</p>
+                )}
+
+                {/* Profile Image Display */}
                 <div className="mb-4">
-                    <label className="block mb-1">First Name:</label>
+                    { previewImage ? (
+                        <div className="relative w-24 h-24">
+                            <img
+                                src={previewImage}
+                                alt="Profile Image Preview"
+                                className="w-24 h-24 rounded-full object-cover"
+                            />
+                            <Controller
+                                name="image"
+                                control={control}
+                                render={({ field: { onChange } }) => (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDismissImage(onChange)}
+                                        className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            />
+                        </div>
+                    ) : user?.imageUrl ? (
+                        <Image
+                            src={process.env.NEXT_PUBLIC_API_BASE_URL + user.imageUrl}
+                            alt="Profile Image"
+                            width={100}
+                            height={100}
+                            className="w-24 h-24 rounded-full object-cover"
+                        />
+                    ) : (
+                        <div className="w-24 h-24 bg-gray-300 rounded-full flex items-center justify-center">
+                            <span className="text-gray-600">No Image</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Profile Image Input */}
+                <div className="mb-4">
+                    <label className="block text-sm font-medium mb-1">Profile Image</label>
+                    <Controller
+                        name="image"
+                        control={control}
+                        render={({ field: { onChange } }) => (
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                onChange={(e) => handleImageChange(e.target.files?.[0], onChange)}
+                                accept=".jpg,.jpeg,.png,.webp"
+                            />
+                        )}
+                    />
+                    {errors.image && <p className="text-sm text-red-600">{errors.image.message}</p>}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium mb-1" htmlFor="username">Username</label>
                     <input
+                        id="username"
+                        type="text"
+                        {...register("username")}
+                        className="w-full border border-gray-300 rounded px-3 py-2"
+                    />
+                    {errors.username && <p className="text-sm text-red-600">{errors.username.message}</p>}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium mb-1" htmlFor="email">Email</label>
+                    <input
+                        id="email"
+                        type="email"
+                        {...register("email")}
+                        className="w-full border border-gray-300 rounded px-3 py-2"
+                    />
+                    {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
+                </div>
+                {/* First Name Input */}
+                <div>
+                    <label className="block text-sm font-medium mb-1" htmlFor="firstName">First Name</label>
+                    <input
+                        id="firstName"
                         type="text"
                         {...register("firstName")}
-                        className="w-full border p-2 rounded"
+                        className="w-full border border-gray-300 rounded px-3 py-2"
                     />
-                    {errors.firstName && <span className="text-red-500">{errors.firstName.message}</span>}
+                    {errors.firstName && <p className="text-sm text-red-600">{errors.firstName.message}</p>}
                 </div>
-                <div className="mb-4">
-                    <label className="block mb-1">Last Name:</label>
+
+                {/* Last Name Input */}
+                <div>
+                    <label className="block text-sm font-medium mb-1" htmlFor="lastName">Last Name</label>
                     <input
+                        id="lastName"
                         type="text"
                         {...register("lastName")}
-                        className="w-full border p-2 rounded"
+                        className="w-full border border-gray-300 rounded px-3 py-2"
                     />
-                    {errors.lastName && <span className="text-red-500">{errors.lastName.message}</span>}
+                    {errors.lastName && <p className="text-sm text-red-600">{errors.lastName.message}</p>}
                 </div>
-                
+
+                {/* Submit Button */}
                 <button
                     type="submit"
-                    disabled={isSubmitting || isPending}
-                    className="w-full bg-blue-500 text-white p-2 rounded"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                 >
-                    {isPending ? "Updating..." : "Update Profile"}
+                    {isSubmitting ? 'Updating...' : 'Update Profile'}
                 </button>
             </form>
         </div>

@@ -34,3 +34,21 @@ export const whoami = async () => {
             || 'Fetch user data failed');
     }
 }
+
+export const updateUser = async (data: any) => {
+    try {
+        const response = await axiosInstance
+            .put(
+                API.AUTH.UPDATE, 
+                data,
+                {
+                    headers: {
+                        "Content-Type": "multipart/form-data", // multer api
+                    },
+                }
+            );
+        return response.data;
+    } catch (error: Error | any) {
+        throw new Error(error?.response?.data?.message || 'Update user failed');
+    }
+}
