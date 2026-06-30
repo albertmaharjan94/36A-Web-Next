@@ -1,0 +1,49 @@
+// lib/actions/admin/blog-action.ts
+"use server";
+import { getAllBlogs, getBlogById, createBlog, updateBlog, deleteBlog } from "../../api/admin/blog";
+import { revalidatePath } from "next/cache";
+export async function handleGetAllBlogs(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+}) {
+    try {
+        const currentPage = params.page || 1;
+        const pageSize = params.limit || 10;
+        const searchQuery = params.search || '';
+
+        const response = await getAllBlogs({
+            page: currentPage,
+            limit: pageSize,
+            search: searchQuery
+        });
+        if (response.success) {
+            return {
+                success: true,
+                data: response.data,
+                pagination: response.meta // meta contains pagination info like total pages, current page, etc.
+            }
+        }
+        return { success: false, data: [], pagination: null };
+    } catch (err: Error | any) {
+        throw new Error(
+            err.message || "Failed to get blogs"
+        );
+    }
+}
+
+export const handleDeleteBlog = async (id: string) => {
+    try {
+        const response = await deleteBlog(id);
+        console.log("Delete response:", response);
+        if (response.success) {
+            revalidatePath('/admin/blogs'); // Revalidate the blogs page after deletion
+            return { success: true, message: "Blog deleted successfully" };
+        }
+        return { success: false, message: "Failed to delete blog" };
+    } catch (err: Error | any) {
+        throw new Error(
+            err.message || "Failed to delete blog"
+        );
+    }
+}

@@ -1,3 +1,4 @@
+
 import axiosInstance from "./axios-instance";
 import { API } from "./endpoints";
 
@@ -50,5 +51,29 @@ export const updateUser = async (data: any) => {
         return response.data;
     } catch (error: Error | any) {
         throw new Error(error?.response?.data?.message || 'Update user failed');
+    }
+}
+
+export const requestPasswordReset = async (email: string) => {
+    try {
+        const response = await axiosInstance.post(
+            API.AUTH.REQUEST_PASSWORD_RESET,
+            { email }
+        );
+        return response.data;
+    } catch (error: Error | any) {
+        throw new Error(error?.response?.data?.message || 'Request password reset failed');
+    }
+}
+
+export const resetPassword = async (token: string, newPassword: string) => {
+    try {
+        const response = await axiosInstance.post(
+            API.AUTH.RESET_PASSWORD(token),
+            { newPassword: newPassword }
+        );
+        return response.data;
+    } catch (error: Error | any) {
+        throw new Error(error?.response?.data?.message || 'Reset password failed');
     }
 }

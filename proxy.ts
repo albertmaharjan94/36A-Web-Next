@@ -28,7 +28,7 @@ export async function proxy(request: NextRequest) {
 // apply to whatever path you want to proxy
 export const config = {
     matcher: [
-        '/dashboard',
+        '/dashboard/:path*',
         '/register',
         '/login',
         '/admin/:path*', // all admin routes
